@@ -29,7 +29,6 @@ python prog.py
 ## ✏️ Drawing Instructions
 
 * Draw a digit (0–9) by clicking and dragging your mouse
-
 * Press Spacebar to clear the canvas
 
 ## 📊 Model Performance
@@ -37,10 +36,8 @@ python prog.py
 * Fully connected neural network with 4 hidden layers
 * Trained using Adam optimizer and CrossEntropyLoss
 
-## 🐍 Python Version
-
-3.11.13
+## 🐍 Python Version - 3.11.13
 
 ## 📷 Example Prediction
 
-![alt text](image-1.png)
+![The photo of an example of how the program works](example.png)
