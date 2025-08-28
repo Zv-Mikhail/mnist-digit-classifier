@@ -33,7 +33,7 @@ python prog.py
 
 ## 📊 Model Performance
 * Achieved ~98% test accuracy on MNIST
-* Fully connected neural network with 4 hidden layers
+* Architecture: Convolutional Neural Network (CNN) with two convolutional layers followed by two fully connected layers
 * Trained using Adam optimizer and CrossEntropyLoss
 
 ## 🐍 Python Version - 3.11.13
