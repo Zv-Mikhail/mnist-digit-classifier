@@ -3,23 +3,27 @@ import torch
 import torch.nn as nn
 import numpy as np
 from PIL import Image
-
+from PIL import Image, ImageOps
 # Структура модели
-class MyNeuraNet(nn.Module):
+class MyCNN(nn.Module):
     def __init__(self):
         super().__init__()
         self.model = nn.Sequential(
-            nn.Linear(784, 256),
+            nn.Conv2d(1, 16, 3),
             nn.ReLU(),
-            nn.Linear(256, 128),
+            nn.MaxPool2d(2),
+            nn.Conv2d(16, 32, 3),
             nn.ReLU(),
-            nn.Linear(128, 64),
+            nn.MaxPool2d(2),
+            nn.Flatten(),
+            nn.Linear(800, 128),
             nn.ReLU(),
-            nn.Linear(64, 10)
+            nn.Linear(128, 10)
         )
-    
+
     def forward(self, x):
         return self.model(x)
+
 
 # Основное приложение
 class DigitRecognizer:
@@ -31,12 +35,12 @@ class DigitRecognizer:
         
         # Загрузка модели
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-        self.model = MyNeuraNet().to(self.device)
+        self.model = MyCNN().to(self.device)
         try:
-            self.model.load_state_dict(torch.load("my_model.pth", map_location=self.device))
+            self.model.load_state_dict(torch.load("my_model_CNN.pth", map_location=self.device))
             self.model.eval()
         except FileNotFoundError:
-            print("Ошибка: Файл my_model.pth не найден!")
+            print("Ошибка: Файл my_model_CNN.pth не найден!")
             return
         
         # Поверхность для рисования
@@ -61,14 +65,38 @@ class DigitRecognizer:
         self.predicted = "None"
 
     def predict(self):
-        # Конвертация поверхности Pygame в PIL Image
+        # Получаем numpy-массив из canvas
         canvas_array = pygame.surfarray.array3d(self.canvas)
-        canvas_array = canvas_array[:, :, 0].T  # Берем один канал (градации серого)
+        canvas_array = canvas_array[:, :, 0].T  # Берём только один канал
+
+        # Конвертируем в Pillow Image и инвертируем (MNIST: чёрное = 1)
         img = Image.fromarray(canvas_array, mode="L")
-        img = img.resize((28, 28))  # Масштабирование до 28x28
-        img_array = np.array(img, dtype=np.float32) / 255.0
-        img_array = 1.0 - img_array  # Инверсия (черный=1, белый=0, как в MNIST)
-        img_tensor = torch.tensor(img_array, dtype=torch.float32).flatten().unsqueeze(0).to(self.device)
+        img = Image.eval(img, lambda x: 255 - x)  # Инверсия
+
+        # Обрезаем белые края (bounding box)
+        bbox = img.getbbox()
+        if bbox:
+            img = img.crop(bbox)
+
+        # Увеличиваем до 20x20 внутри белого фона 28x28
+        img = img.resize((20, 20), Image.Resampling.LANCZOS)
+        new_img = Image.new("L", (28, 28), 0)  # Чёрный фон (как инвертированное MNIST)
+        new_img.paste(img, ((28 - 20) // 2, (28 - 20) // 2))
+
+        # Преобразуем в тензор
+        img_array = np.array(new_img, dtype=np.float32) / 255.0
+        img_tensor = torch.tensor(img_array, dtype=torch.float32).unsqueeze(0).unsqueeze(0).to(self.device)
+
+        # Предсказание
+        with torch.no_grad():
+            output = self.model(img_tensor)
+            probs = torch.softmax(output, dim=1).cpu().numpy()[0]
+            predicted = np.argmax(probs)
+
+        self.probs = probs * 100
+        self.predicted = str(predicted)
+
+
         
         # Предсказание
         with torch.no_grad():
